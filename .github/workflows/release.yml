@@ -1,0 +1,38 @@
+name: Release
+# Pushing a tag like v0.4.0 tests the code, builds the installer and posts it as a pre-release.
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        shell: bash
+        run: node --test tests/*.test.js
+      - name: Build
+        run: |
+          .\installer\build.ps1
+          if (-not (Test-Path "dist\MultiChatHub-Setup-$($env:GITHUB_REF_NAME.TrimStart('v')).exe")) { throw 'The tag does not match the version in js\config.js' }
+      - name: Try the installer
+        run: |
+          New-Item -ItemType Directory t\cfg | Out-Null
+          Set-Content t\cfg\user.ini "[BasicWindow]" -Encoding ASCII
+          $exe = (Get-Item dist\*.exe).FullName
+          foreach ($a in '/install', '/uninstall') {
+            $p = Start-Process $exe -ArgumentList $a, "/target:$PWD\t\app", "/config:$PWD\t\cfg" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "$a failed" }
+            if ((Test-Path t\app\dock.html) -ne ($a -eq '/install')) { throw "$a did not do its job" }
+          }
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME (Get-Item dist\*.exe).FullName --verify-tag --prerelease --title "Multi Chat Hub $($env:GITHUB_REF_NAME.TrimStart('v'))" --notes-file installer\release-notes.md
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing failed' }
