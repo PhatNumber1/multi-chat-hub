@@ -124,7 +124,7 @@ body:not(.no-modHighlight) .isMod { box-shadow: inset 3px 0 var(--chat-mod); bac
 .emoteText { display: none; }
 .no-emotes .emote { display: none; }
 .no-emotes .emoteText { display: inline; }
-.no-timestamps .line time, .no-logos :is(.line, #accounts) .logo, .no-badges .badge, .no-replies .reply, .no-viewers .acct b, .no-labels .acctName, .no-total #total, .no-accounts #accounts, .no-gear #gear, .no-mod #mod, .no-search #find { display: none; }
+.no-timestamps .line time, .no-logos :is(.line, #accounts) .logo, .no-badges .badge, .no-replies .reply, .no-viewers .acct b, .no-labels .acctName, .no-total #total, .no-accounts #accounts, .no-gear #gear, .no-gear #help, .no-mod #mod, .no-search #find { display: none; }
 
 /* clean mode */
 .clean #hide, .clean #addAcct { display: none; }
@@ -225,6 +225,64 @@ select { margin: 6px 0; }
 .linkTile .x { position: absolute; top: 4px; right: 4px; background: none; padding: 0 6px; }
 .headBtns { display: flex; gap: 6px; }
 
+/* connection lights, the alert bar and Help */
+.ico.ico { flex: none; }
+#alert { flex: none; display: flex; align-items: center; gap: 8px; margin: 8px 10px 0; padding: 6px 6px 6px 11px; border: 1px solid var(--warn); border-radius: 8px; background: var(--box); color: var(--warn); font-weight: 600; font-size: 13px; line-height: 1.3; }
+#alert span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#alert .ico { stroke: currentColor; }
+#alert.bad { border-color: var(--live); color: var(--live); }
+#alert.ok { border-color: var(--ok); color: var(--ok); }
+#alert button { padding: 3px 9px; color: var(--text); font-weight: 400; }
+.clean #alert { margin-right: 44px; }
+.clean #alert.ok { display: none; }
+.obsLight { display: inline-flex; align-items: center; gap: 5px; padding: 9px 8px; border-color: var(--line) !important; background: var(--box); font-size: 13px; }
+.obsLight .ico, .connLight.ok .ico, .todo.ok .ico { stroke: var(--ok); }
+.obsNote { flex: 1; min-width: 0; }
+#live > .ico { stroke: var(--warn); }
+.connLight { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--field); text-align: left; }
+.connLight > span:last-child { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.connLight .ico { width: 22px; height: 22px; }
+.connLight small { display: block; color: var(--dim); font-weight: 400; }
+.connLight.ok { border-color: var(--ok); }
+.connLight.ok b { color: var(--ok); }
+.connLight.wait { border-color: var(--warn); }
+.connLight.wait .ico { stroke: var(--warn); }
+.connLight.wait b { color: var(--warn); }
+.connLight.bad { border-color: var(--live); }
+.connLight.bad .ico { stroke: var(--live); }
+.connLight.bad b { color: var(--live); }
+.connRow { display: block; width: 100%; padding: 0; border: 0; border-radius: 8px; background: none; }
+.connRow .connLight { margin: 0 0 6px; }
+.histRow { display: flex; gap: 10px; padding: 2px 0; }
+.histRow time { flex: none; min-width: 66px; color: var(--dim); }
+.histRow span { min-width: 0; overflow-wrap: anywhere; }
+.histRow.bad span { color: var(--live); }
+.histRow.ok span { color: var(--ok); }
+.todo { display: flex; align-items: center; gap: 9px; padding: 6px 0; }
+.todo span:nth-child(2) { flex: 1; min-width: 0; }
+.todo .num { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--purple); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.todo.ok span:nth-child(2) { color: var(--dim); }
+.steps { margin: 6px 0; padding-left: 22px; }
+.steps li { padding: 3px 0; overflow-wrap: anywhere; }
+.steps li::marker { color: var(--lilac); font-weight: 700; }
+.helpKey { display: flex; align-items: flex-start; gap: 9px; padding: 4px 0; }
+.helpLink a { overflow-wrap: anywhere; }
+.copyBtn { margin-left: 5px; padding: 0 7px; font-size: 11px; line-height: 17px; }
+
+/* the helper */
+.bot { margin-top: 8px; margin-bottom: 8px; }
+.botHead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.botHead small { color: var(--dim); }
+.botLog { display: flex; flex-direction: column; gap: 6px; max-height: 270px; min-height: 90px; overflow-y: auto; margin: 8px 0; }
+.botMsg { align-self: flex-start; max-width: 94%; padding: 6px 10px; border-radius: 8px; background: var(--plain); overflow-wrap: anywhere; line-height: 1.35; }
+.botMsg.mine { align-self: flex-end; background: var(--purple); color: #fff; }
+.botMsg .connLight { min-width: 190px; }
+.botChips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.botChips button { padding: 2px 9px; border-color: #5b5e6b; border-radius: 12px; background: var(--box); color: var(--lilac); font-size: 12.5px; }
+.botRow { display: flex; gap: 6px; align-items: center; }
+#panel .botRow input { flex: 1; min-width: 0; margin: 0; }
+.botMsg .botRow { margin-top: 6px; }
+
 /* Little room: the biggest of four sizes that still leaves room for chat. See fit() in app.js. */
 :is(.snug, .tinySize, .mini) #top { padding: 5px 8px 0; }
 :is(.snug, .tinySize, .mini) .icon { padding: 3px; }
@@ -239,13 +297,13 @@ select { margin: 6px 0; }
 :is(.snug, .tinySize, .mini) .acctLine { font-size: 12.5px; }
 :is(.snug, .tinySize, .mini) #addAcct { flex-basis: 110px; font-size: 12.5px; }
 :is(.snug, .tinySize, .mini) #live { padding: 5px 8px; gap: 5px; }
-:is(.snug, .tinySize, .mini) #live .goLive, :is(.snug, .tinySize, .mini) #live .more { padding: 6px; }
+:is(.snug, .tinySize, .mini) #live :is(.goLive, .more, .obsLight) { padding: 6px; }
 :is(.snug, .tinySize, .mini) .chips { gap: 5px; }
 :is(.snug, .tinySize, .mini) .chip { padding: 3px 5px; font-size: 12.5px; }
 :is(.tinySize, .mini) .stat { min-height: 23px; }
 :is(.tinySize, .mini) .stat b { font-size: 14px; }
 :is(.tinySize, .mini) #live .goLive { padding: 3px; font-size: 13px; }
-:is(.tinySize, .mini) #live .more { padding: 3px; }
+:is(.tinySize, .mini) #live :is(.more, .obsLight) { padding: 3px 5px; }
 :is(.tinySize, .mini) .chip { padding: 1px 4px; }
 /* Very little room: icon and number only. Pointing at a box shows its name. */
 .mini .stat { flex: 1 1 88px; }
@@ -253,3 +311,4 @@ select { margin: 6px 0; }
 .mini .acctName, .mini #total .acctLine, .mini .chipName, .mini #addAcct span { display: none; }
 .mini #addAcct { flex: 0 0 34px; }
 .mini .chips { grid-template-columns: repeat(auto-fit, minmax(36px, 1fr)); }
+.mini .obsLight span { display: none; }

@@ -80,6 +80,7 @@
     if (s.textContent !== text) s.textContent = text;
     s.className = on ? 'live' : waiting ? 'warnText' : '';
     $('demoTag').hidden = !settings.demo;
+    if (MCH.conn) MCH.conn.check();
     fit();
   }
   // Uses the biggest of four sizes that leaves most of the dock for chat.
@@ -88,7 +89,7 @@
     for (const s of ['', 'snug', 'tinySize', 'mini']) {
       root.className = s;
       const cut = [...document.querySelectorAll('.stat b')].some((b) => b.getBoundingClientRect().right > b.closest('.statMain').getBoundingClientRect().right);
-      if (!cut && $('top').offsetHeight + $('live').offsetHeight <= room) break;
+      if (!cut && $('top').offsetHeight + $('live').offsetHeight + $('alert').offsetHeight <= room) break;
     }
   }
   addEventListener('resize', fit);
@@ -384,6 +385,7 @@
     sBox.select();
     if (was) toBottom();
   }
+  function searchFor(text) { closePanel(); sBox.value = text; openSearch(); }
   function closeSearch() {
     const was = following;
     sBar.hidden = sList.hidden = true;
@@ -532,8 +534,13 @@
   }
   function renderPanel() {
     if (panel.hidden) return;
-    const at = panel.scrollTop;
-    if (page) { panel.replaceChildren(...page()); panel.scrollTop = at; return; }
+    const at = panel.scrollTop, typing = panel.contains(document.activeElement) ? document.activeElement : null;
+    if (page) {
+      panel.replaceChildren(...page());
+      panel.scrollTop = at;
+      if (typing && panel.contains(typing)) typing.focus(); // the helper's box is kept, so typing goes on
+      return;
+    }
     const kids = [head('Settings', MCH.brand()), el('h3', {}, 'Accounts'), ...MCH.accounts.list()];
     if (MCH.live) kids.push(el('h3', {}, 'OBS'), MCH.live.settingsSection());
     if (MCH.mod) kids.push(el('h3', {}, 'Twitch actions'), MCH.mod.settingsSection());
@@ -667,5 +674,5 @@
     ];
   }
 
-  MCH.app = { accounts, ask, toast, form, act, openPanel, openPage, closePanel, renderPanel, renderTop, head, logo, section, color, status, boot, add, drop, emit, cfgOf, label, applyShown, applyLook };
+  MCH.app = { accounts, ask, toast, form, act, openPanel, openPage, closePanel, renderPanel, renderTop, head, logo, section, openSections, color, status, boot, add, drop, emit, cfgOf, label, boxes, setClean, searchFor, applyShown, applyLook };
 })();

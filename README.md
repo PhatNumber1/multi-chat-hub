@@ -2,19 +2,33 @@
 
 A private chat dock for OBS. It runs inside OBS: no server, no extra app, no browser tab.
 
-**Status: test build 0.5.0.** Several accounts at once (Twitch, Kick, YouTube, TikTok), Go Live buttons, a Moderator page, look settings, clean mode and chat search. Twitch sign-in works inside OBS. YouTube and TikTok have not been tried with a real key yet.
+**Status: test build 0.6.0.** Several accounts at once (Twitch, Kick, YouTube, TikTok), Go Live buttons, a Moderator page, look settings, clean mode and chat search. Twitch sign-in works inside OBS. YouTube and TikTok have not been tried with a real key yet.
 
 ![Demo chat](docs/chat.png)
 
 ## Install
 
 1. Close OBS.
-2. Run `MultiChatHub-Setup-0.5.0.exe` from the Releases page and follow the steps.
+2. Run `MultiChatHub-Setup-0.6.0.exe` from the Releases page and follow the steps.
 3. Open OBS. If the dock is not showing, tick **Docks > Multi Chat Hub**.
 
 The installer copies the dock to `C:\ProgramData\obs-studio\plugins\MultiChatHub`, backs up OBS's settings, adds one entry to OBS's dock list and exits. Run it again to update or uninstall. It is not signed yet, so Windows may show a warning.
 
 By hand instead: put this folder somewhere permanent, then in OBS open **Docks > Custom Browser Docks** and add the full path of `dock.html`, for example `file:///C:/MultiChatHub/dock.html`.
+
+## Help and the Helper
+
+The **?** button at the top opens Help: a setup checklist that ticks itself, step-by-step guides with links, and how everything works.
+
+At the top of it is the **Helper**. Type what you want, such as "set it up for me", "add kick somename", "hide tiktok chat", "make the text bigger" or "check everything", and it does it. It asks before anything goes live, bans or deletes. It is a list of rules, not an online AI, so it is free and nothing you type leaves your PC.
+
+![Help](docs/help.png)
+
+## Connection lights
+
+OBS and every account have a live light: green check connected, yellow reconnecting, red needs you. If one drops for more than a moment, a bar at the top says when, even in clean mode. Click the **OBS** light for a page with every connection and what happened.
+
+![Connected](docs/connected.png)
 
 ## Add your accounts
 

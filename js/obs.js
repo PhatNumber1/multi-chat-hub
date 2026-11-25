@@ -15,7 +15,7 @@
 
   class ObsClient {
     constructor(port, password, onState, onEvent) {
-      Object.assign(this, { port, password, onState, onEvent, state: 'connecting', note: 'Connecting to OBS', next: 1, wait: new Map(), backoff: 1000, stopped: false });
+      Object.assign(this, { port, password, onState, onEvent, state: 'connecting', note: 'Connecting to OBS', next: 1, wait: new Map(), backoff: 1000, stopped: false, missed: 0 });
     }
     set(state, note) { this.state = state; this.note = note; this.onState(); }
     start() {
@@ -23,6 +23,7 @@
       const ws = this.ws = new WebSocket('ws://127.0.0.1:' + this.port);
       ws.onmessage = async (ev) => {
         if (ws !== this.ws) return;
+        this.missed = 0;
         let m;
         try { m = JSON.parse(ev.data); } catch { return; }
         const d = m.d || {};
@@ -32,6 +33,7 @@
           if (ws === this.ws && ws.readyState === 1) ws.send(JSON.stringify({ op: 1, d: id }));
         } else if (m.op === 2) {
           this.backoff = 1000;
+          this.reached = true;
           this.set('ok', 'Connected to OBS');
         } else if (m.op === 5) {
           this.onEvent(d);
@@ -47,10 +49,11 @@
       ws.onclose = (ev) => {
         if (ws !== this.ws) return;
         this.ws = null;
+        this.missed = 0;
         this.failAll();
         if (this.stopped) return;
         if (ev.code === 4009) { this.set('error', 'OBS did not accept that WebSocket password'); return; }
-        this.set('reconnecting', 'Cannot reach OBS WebSocket, retrying');
+        this.set('reconnecting', this.reached ? 'Lost the connection to OBS, retrying' : 'Cannot reach OBS WebSocket, retrying');
         this.timer = setTimeout(() => this.start(), this.backoff);
         this.backoff = Math.min(this.backoff * 2, 15000);
       };
@@ -71,7 +74,12 @@
       if (this.state !== 'ok' || !this.ws) return Promise.reject(new Error('OBS is not connected'));
       const requestId = String(this.next++);
       return new Promise((res, rej) => {
-        const timer = setTimeout(() => { this.wait.delete(requestId); rej(new Error('OBS did not answer')); }, 8000);
+        const ws = this.ws, timer = setTimeout(() => {
+          this.wait.delete(requestId);
+          rej(new Error('OBS did not answer'));
+          // Two silent requests in a row: the line is dead even if nothing said so.
+          if (ws === this.ws && ws && ++this.missed >= 2) { ws.onclose({ code: 0 }); ws.close(); }
+        }, 8000);
         this.wait.set(requestId, { res, rej, timer });
         this.ws.send(JSON.stringify({ op: 6, d: { requestType, requestId, requestData: requestData || {} } }));
       });

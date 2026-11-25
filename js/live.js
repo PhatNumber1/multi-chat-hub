@@ -5,7 +5,7 @@
   const { KINDS, Outputs, ObsClient, DemoObs, platformOf, startOrder, stopOrder } = MCH.obs;
   const bar = document.getElementById('live'), drawer = document.getElementById('outputs');
   const BADGE = { instagram: 'IG', facebook: 'FB', trovo: 'TR', x: 'X' };
-  let client = null, outs = null, open = false, run = 0, hasPassword = false, polling = false, again = false;
+  let listed = false, client = null, outs = null, open = false, run = 0, hasPassword = false, polling = false, again = false;
   const busy = new Map(); // output id -> 'Starting…' or 'Stopping…'
 
   const label = (o) => settings.liveNames[o.id] || o.name;
@@ -149,7 +149,7 @@
       if (!client) {
         bar.replaceChildren(button('Set up Go Live', 'goLive', () => openPanel('Go Live'), 'Connect to OBS'));
       } else if (!ready()) {
-        bar.replaceChildren(el('span', { class: 'dot ' + (client.state === 'error' ? 'error' : 'reconnecting') }), el('span', { class: 'dim' }, client.state === 'ok' ? 'Reading outputs…' : client.note), button('Settings', '', () => openPanel('Go Live')));
+        bar.replaceChildren(MCH.icon(client.state === 'error' ? 'bad' : client.state === 'ok' ? 'ok' : 'wait'), el('span', { class: 'obsNote ' + (client.state === 'ok' ? 'dim' : 'warn') }, client.state === 'ok' ? 'Reading outputs…' : client.note), button('Settings', '', () => openPanel('Go Live')));
       } else {
         const on = outs.list.some((o) => o.kind === 'stream' && o.active), working = outs.list.some((o) => o.kind === 'stream' && busy.has(o.id));
         const main = button('', 'goLive' + (on ? ' on' : ''), on ? endStream : goLive, on ? 'End every running stream' : 'Choose where to go live');
@@ -160,7 +160,8 @@
         more.setAttribute('aria-expanded', String(open));
         more.setAttribute('aria-label', 'All outputs');
         const extra = outs.list.filter((o) => o.kind !== 'stream' && o.active).map((o) => el('span', { class: 'tiny', title: label(o) + ' is running' }, icon(o)));
-        bar.replaceChildren(main, ...extra, more, el('div', { class: 'chips' }, ...shown().filter((o) => o.kind === 'stream').map(chip)));
+        const obsLight = el('button', { type: 'button', class: 'obsLight', title: client.note + '. Click to see every connection', 'aria-label': 'OBS connected', on: { click: () => MCH.conn.open() } }, MCH.icon('ok'), el('span', {}, 'OBS'));
+        bar.replaceChildren(main, ...extra, obsLight, more, el('div', { class: 'chips' }, ...shown().filter((o) => o.kind === 'stream').map(chip)));
       }
       drawDrawer();
       MCH.app.status();
@@ -184,7 +185,12 @@
     const mine = outs;
     try { await mine.refresh(); } catch { /* the next poll tries again */ }
     polling = false;
-    if (mine === outs) draw();
+    if (mine === outs) {
+      draw();
+      // The list of outputs arrives after the settings were drawn; add it unless a password is being typed.
+      const typed = document.querySelector('#panel input[type=password]');
+      if (!listed && mine.list.length) { listed = true; if (!typed || !typed.value) renderPanel(); }
+    }
     if (again) { again = false; poll(); }
   }
 
@@ -192,6 +198,7 @@
     const id = ++run;
     if (client) client.stop();
     client = outs = null;
+    listed = false;
     busy.clear();
     const password = await MCH.secrets.get('obs');
     if (id !== run) return;
@@ -204,25 +211,53 @@
     draw(true);
   }
 
+  // password: null keeps the saved one
+  async function connect(password, port) {
+    settings.obsPort = port;
+    MCH.saveSettings();
+    if (password != null) await MCH.secrets.set('obs', password);
+    await start();
+  }
+
+  /* ---------- for the helper: each returns why it cannot, or '' ---------- */
+
+  const notReady = () => (ready() ? '' : 'OBS is not connected yet. Say Connect OBS first.');
+  const askGoLive = () => { const no = notReady(); if (!no) goLive(); return no; };
+  async function askEnd() {
+    const no = notReady();
+    if (no) return no;
+    const on = outs.list.filter((o) => o.kind === 'stream' && (o.active || busy.has(o.id)));
+    if (!on.length) return 'Nothing is streaming.';
+    if (!await ask('End the stream on ' + on.map(label).join(', ') + '?', 'End stream')) return 'Okay, still streaming.';
+    stopMany(on);
+    return 'Ending the stream on ' + on.map(label).join(', ') + '.';
+  }
+  async function askRecord(want) {
+    const no = notReady();
+    if (no) return no;
+    const o = outs.find('main:record');
+    if (!o) return 'OBS did not offer a recording.';
+    if (o.active === want) return want ? 'It is already recording.' : 'Nothing is recording.';
+    if (!await ask((want ? 'Start ' : 'Stop ') + label(o) + '?', want ? 'Start recording' : 'Stop recording')) return 'Okay, nothing was changed.';
+    const now = outs && outs.find(o.id);
+    if (!now || now.active === want) return 'It had already changed.';
+    return await drive(now, want) ? (want ? 'Recording.' : 'Recording stopped. The file is in your usual recordings folder.') : 'OBS did not do it. Check OBS for a message.';
+  }
+
   /* ---------- settings ---------- */
 
   function settingsSection() {
-    const kids = [el('p', { class: 'dim' }, 'In OBS: Tools > WebSocket Server Settings > Show Connect Info. Copy the Server Password and paste it here. It is kept encrypted on this PC and only used to reach OBS on this PC.')];
+    const kids = [MCH.conn ? MCH.conn.light('obs', 'OBS') : '', el('p', { class: 'dim' }, 'In OBS: Tools > WebSocket Server Settings > Show Connect Info. Copy the Server Password and paste it here. It is kept encrypted on this PC and only used to reach OBS on this PC.')];
     const pass = el('input', { type: 'password', placeholder: hasPassword ? 'Saved. Paste to replace' : 'Server Password', autocomplete: 'off', 'aria-label': 'OBS WebSocket password' });
     const port = el('input', { type: 'text', value: String(settings.obsPort), 'aria-label': 'OBS WebSocket port' });
     const save = async () => {
       const n = Number(port.value.trim());
       if (!Number.isInteger(n) || n < 1 || n > 65535) { toast('The port must be a number. OBS uses 4455.'); return; }
-      settings.obsPort = n;
-      MCH.saveSettings();
-      if (pass.value || !hasPassword) await MCH.secrets.set('obs', pass.value.trim());
-      await start();
+      await connect(pass.value || !hasPassword ? pass.value.trim() : null, n);
       renderPanel();
-      toast('Connecting to OBS');
     };
     kids.push(pass, el('label', {}, 'Port', port), el('div', { class: 'row left' }, button(hasPassword ? 'Save and reconnect' : 'Connect to OBS', 'primary', save),
-      hasPassword ? button('Forget password', '', async () => { await MCH.secrets.del('obs'); await start(); renderPanel(); }) : ''));
-    if (client) kids.push(el('p', { class: client.state === 'error' ? 'warn' : 'dim' }, client.note + '.'));
+      button('Help', '', () => MCH.help.open()), hasPassword ? button('Forget password', '', async () => { await MCH.secrets.del('obs'); await start(); renderPanel(); }) : ''));
     const c = el('input', { type: 'checkbox', checked: settings.confirmLive });
     c.addEventListener('change', () => { settings.confirmLive = c.checked; MCH.saveSettings(); });
     kids.push(el('label', { class: 'check' }, c, 'Ask before starting or ending one stream'));
@@ -243,7 +278,8 @@
   }
 
   const onAir = () => !!outs && outs.list.some((o) => o.kind === 'stream' && o.active);
-  MCH.live = { start, settingsSection, draw, onAir };
+  const state = () => (client ? { state: client.state, note: client.note } : { state: 'off', note: 'Not set up' });
+  MCH.live = { start, settingsSection, draw, onAir, state, connect, askGoLive, askEnd, askRecord };
   setInterval(poll, 2000);
   start();
 })();

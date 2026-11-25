@@ -17,6 +17,7 @@
     <span id="status" role="status"></span>
     <div>
       <span id="demoTag" hidden>Demo</span>
+      <button id="help" class="icon" title="Help and setup" aria-label="Help"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9.3 9.4a2.8 2.8 0 1 1 4.1 2.4c-.9.5-1.4 1.1-1.4 2.1M12 17v.1"/></svg></button>
       <button id="hide" class="icon" title="Clean mode: show only chat" aria-label="Clean mode"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5H3.5V9M15 3.5h5.5V9M9 20.5H3.5V15M15 20.5h5.5V15"/></svg></button>
       <button id="gear" class="icon" title="Settings" aria-label="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4zM12 5.4a6.6 6.6 0 1 0 0 13.2 6.6 6.6 0 0 0 0-13.2zM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
     </div>
@@ -26,6 +27,7 @@
     <div id="accounts"></div>
   </div>
 </header>
+<div id="alert" role="alert" hidden></div>
 <section id="live" aria-label="Go Live"></section>
 <section id="outputs" hidden aria-label="All outputs"></section>
 <section id="search" hidden aria-label="Search chat">
@@ -65,5 +67,8 @@
 <script src="js/accounts.js"></script>
 <script src="js/live.js"></script>
 <script src="js/mod.js"></script>
+<script src="js/conn.js"></script>
+<script src="js/bot.js"></script>
+<script src="js/help.js"></script>
 </body>
 </html>

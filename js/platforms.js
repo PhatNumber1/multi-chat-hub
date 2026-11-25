@@ -285,13 +285,15 @@
         let j;
         try { j = JSON.parse(e.data); } catch { return; }
         this.backoff = 2000;
+        // A LIVE sends something every few seconds, so a long silence means the line is dead.
+        this.later('alive', 120000, () => { this.closeSocket(); this.closed(0); });
         if (this.status !== 'ok' || this.note !== 'Connected, read-only') this.setStatus('ok', 'Connected, read-only');
         for (const m of Array.isArray(j.messages) ? j.messages : [j]) {
           const d = m.data || {};
           if (m.type === 'WebcastChatMessage') { const x = tiktokMessage(d); if (x.parts[0].text && (!x.id || this.once(x.id))) this.message(x); } else if (m.type === 'WebcastRoomUserSeqMessage') this.setViewers(tiktokViewers(d));
         }
       };
-      ws.onclose = (e) => { if (ws === this.ws) { this.ws = null; this.closed(e.code); } };
+      ws.onclose = (e) => { if (ws === this.ws) { this.closeSocket(); this.closed(e.code); } };
     }
     closed(code) {
       if (this.stopped) return;

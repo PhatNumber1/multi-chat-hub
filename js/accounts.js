@@ -84,7 +84,8 @@
 
   /* ---------- add an account ---------- */
 
-  function add() { cancel(); adding = { step: 'pick' }; openId = null; openPage(addPage); }
+  // platform: go straight to that one's page
+  function add(platform) { cancel(); adding = { step: INFO[platform] ? platform : 'pick' }; openId = null; openPage(addPage); }
   function addPage() {
     if (adding.step === 'pick') {
       const rows = (kind) => Object.entries(INFO).filter(([, i]) => (i.kind === 'link') === kind).map(([p, i]) => el('button', { type: 'button', class: 'acctRow', on: { click: () => { adding = { step: p }; renderPanel(); } } },
@@ -94,7 +95,7 @@
     const p = adding.step, i = INFO[p], kids = [head('Add ' + i.name, logo(p))];
     if (i.kind === 'signin') kids.push(...twitchSignIn(null));
     else kids.push(...channelForm(p, i));
-    kids.push(el('div', { class: 'row left' }, button('Back', add)));
+    kids.push(el('div', { class: 'row left' }, button('Back', () => add()), button('Help', () => MCH.help.open())));
     return kids;
   }
   function channelForm(p, i) {
@@ -194,6 +195,7 @@
     const title = c.nick || (a && a.name) || c.channel || info.name;
     const kids = [head(title, logo(c.platform))];
     kids.push(el('p', { class: a && a.status === 'error' ? 'warn' : 'dim', id: 'acctNote' }, info.name + '. ' + (a ? a.note : 'Turned off') + '.'));
+    if (!link && MCH.conn) kids.push(MCH.conn.light(c.id));
 
     if (!demo && info.kind === 'signin' && a instanceof StillAccount) kids.push(...twitchSignIn(c.id));
     const tick = (text, key, after) => {
@@ -273,7 +275,7 @@
     open(c.id);
     toast('Twitch signed ' + label(a) + ' out. Sign in again.');
   }
-  async function remove(c) {
+  async function remove(c, stay) {
     if (!await ask('Remove ' + (c.nick || c.channel || INFO[c.platform].name) + ' from this dock?' + (INFO[c.platform].kind === 'signin' ? '\nYou can sign in again later.' : ''), 'Remove')) return;
     disconnect(c.id);
     settings.accounts = settings.accounts.filter((x) => x.id !== c.id);
@@ -282,9 +284,29 @@
     // A key is shared, so it goes when the last account using it goes.
     if (INFO[c.platform].kind === 'key' && !settings.accounts.some((x) => x.platform === c.platform)) await MCH.secrets.del(keyName(c.platform));
     renderTop();
+    if (stay) return;
     closePanel();
     toast('Account removed');
   }
+
+  /* ---------- for the helper ---------- */
+
+  const hasKey = async (p) => !!await MCH.secrets.get(keyName(p));
+  // Adds without opening a page. Returns { account } or { error }.
+  async function quickAdd(platform, text, key) {
+    const channel = clean(platform, text);
+    if (!channel) return { error: INFO[platform].kind === 'link' ? 'I need a name, or a link that starts with https.' : 'That does not look like a ' + INFO[platform].name + ' account.' };
+    if (settings.accounts.some((c) => c.platform === platform && c.channel.toLowerCase() === channel.toLowerCase())) return { error: 'This account is already added.' };
+    if (key) await MCH.secrets.set(keyName(platform), key);
+    const c = newAccount(platform, channel);
+    save();
+    await connect(c);
+    renderTop();
+    return { account: c };
+  }
+  function setOn(id, on) { const c = find(id); if (!c) return; c.on = on; save(); if (on) connect(c); else disconnect(id); renderTop(); }
+  function reconnect(id) { const c = find(id); if (c && c.on) connect(c); }
+  async function removeById(id) { const c = find(id); if (c) await remove(c, true); return !find(id); }
 
   /* ---------- in Settings ---------- */
 
@@ -294,7 +316,7 @@
       return el('button', { type: 'button', class: 'acctRow', on: { click: () => open(c.id) } }, el('span', { class: 'dot ' + (a ? a.status : '') }), logo(c.platform),
         el('span', {}, c.nick || (a && a.name) || c.channel || INFO[c.platform].name, el('small', {}, a ? a.note : 'Turned off')));
     });
-    return [...rows, button('Add account', add, 'primary')];
+    return [...rows, el('div', { class: 'row left' }, button('Add account', () => add(), 'primary'), button('Connections', () => MCH.conn.open()))];
   }
   // Keeps the open page's status line current without rebuilding what is being typed.
   function changed(a) {
@@ -305,7 +327,7 @@
     if (a.platform === 'twitch' && a.user && cfgOf(a).channel !== a.name && find(a.id)) { find(a.id).channel = a.name; save(); }
   }
 
-  MCH.accounts = { add, open, setChat, list, changed, cancel, sync, connectAll, lost };
+  MCH.accounts = { add, open, setChat, list, changed, cancel, sync, connectAll, lost, hasKey, quickAdd, setOn, reconnect, removeById };
   applyLook();
   boot();
 })();

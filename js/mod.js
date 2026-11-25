@@ -251,13 +251,36 @@
     }],
   ];
 
+  function whyNot(t, a) {
+    if (t.off) return t.off;
+    if (t.scope && !a.can(t.scope)) return 'Sign in to Twitch again to allow this';
+    if (t.live && a.viewers == null) return 'Only works while this channel is live';
+    if ((t.scope === CHAT && !chat) || (t.shield && shield == null)) return 'Reading from Twitch…';
+    return '';
+  }
+  // For the helper. Opens the page on that account, then does one action. Returns what happened.
+  const ASKS_ITSELF = ['info', 'marker', 'ad', 'raid', 'poll', 'predict', 'shout', 'announce', 'goals', 'clear', 'automod', 'terms', 'unbans', 'ban', 'timeout', 'unban', 'warn', 'mod', 'unmod', 'vip', 'unvip'];
+  async function runTile(id, accountId, want) {
+    const t = GROUPS.map(([, , x]) => x[id]).find(Boolean), a = twitch().find((x) => x.id === accountId);
+    if (!t) return 'I do not know that action.';
+    if (!a) return 'That Twitch account is not signed in.';
+    if (current !== a) { current = a; chat = shield = null; }
+    show();
+    await refresh();
+    if (current !== a) return 'The account changed, so nothing was done.';
+    const why = whyNot(t, a);
+    if (why) return t.name + ': ' + (problem || why) + '.';
+    const on = t.on ? !!t.on(chat || {}) : null;
+    if (on != null && want != null && on === want) return t.name + ' is already ' + (on ? 'on' : 'off') + '.';
+    if (!ASKS_ITSELF.includes(id) && !(on === false && ['follow', 'slow', 'delay', 'shield'].includes(id))) {
+      if (!await ask((on == null ? t.name : 'Turn ' + (on ? 'off ' : 'on ') + t.name) + ' for ' + a.name + '?', on == null ? t.name : on ? 'Turn off' : 'Turn on')) return 'Okay, nothing was changed.';
+    }
+    if (current !== a) return 'The account changed, so nothing was done.';
+    await t.run(a, chat || {});
+    return t.name + ': done, or cancelled by you. The message at the bottom says which.';
+  }
   function tile(t) {
-    const a = current, c = chat || {};
-    let why = t.off || '';
-    if (!why && t.scope && !a.can(t.scope)) why = 'Sign in to Twitch again to allow this';
-    if (!why && t.live && a.viewers == null) why = 'Only works while this channel is live';
-    if (!why && t.scope === CHAT && !chat) why = 'Reading from Twitch…';
-    if (!why && t.shield && shield == null) why = 'Reading from Twitch…';
+    const a = current, c = chat || {}, why = whyNot(t, a);
     const on = t.on && !why ? !!t.on(c) : null, note = why || (t.note ? t.note(c) : '');
     const b = el('button', { type: 'button', class: 'tile' + (t.red ? ' red' : '') + (on ? ' isOn' : '') + (t.add ? ' add' : ''), disabled: !!why, title: why, on: { click: () => t.run(a, c) } },
       el('span', {}, t.name), on == null ? '' : el('small', { class: 'sw' }, on ? 'On' : 'Off'), note ? el('small', {}, note) : '');
@@ -333,5 +356,5 @@
     const s = JSON.stringify(twitch().map((a) => [label(a), a.status, a.viewers, a.scopes]));
     if (s !== sig) { sig = s; draw(); }
   }
-  MCH.mod = { update, close, settingsSection, groups: GROUPS };
+  MCH.mod = { update, close, settingsSection, runTile, groups: GROUPS };
 })();
