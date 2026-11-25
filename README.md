@@ -2,14 +2,14 @@
 
 A private chat dock for OBS. It runs inside OBS: no server, no extra app, no browser tab.
 
-**Status: test build 0.6.0.** Several accounts at once (Twitch, Kick, YouTube, TikTok), Go Live buttons, a Moderator page, look settings, clean mode and chat search. Twitch sign-in works inside OBS. YouTube and TikTok have not been tried with a real key yet.
+**Status: test build 0.7.0.** Several accounts at once (Twitch, Kick, YouTube, TikTok), Go Live buttons, a Moderator page, look settings, clean mode and chat search. Twitch sign-in and the automatic OBS connection work inside OBS. YouTube and TikTok have not been tried with a real key yet.
 
 ![Demo chat](docs/chat.png)
 
 ## Install
 
 1. Close OBS.
-2. Run `MultiChatHub-Setup-0.6.0.exe` from the Releases page and follow the steps.
+2. Run `MultiChatHub-Setup-0.7.0.exe` from the Releases page and follow the steps.
 3. Open OBS. If the dock is not showing, tick **Docks > Multi Chat Hub**.
 
 The installer copies the dock to `C:\ProgramData\obs-studio\plugins\MultiChatHub`, backs up OBS's settings, adds one entry to OBS's dock list and exits. Run it again to update or uninstall. It is not signed yet, so Windows may show a warning.
@@ -72,6 +72,10 @@ To try the dock without signing in, turn on **Demo chat** in its settings.
 
 They sit under the viewer counts and control OBS itself: its own stream, recording, replay buffer and virtual camera, plus every output in Aitum Stream Suite if you use it.
 
+**The installer connects them by itself.** Leave **Connect to OBS by itself** ticked and there is no password to copy. It turns on OBS's WebSocket server if it is off (after a backup) and keeps its password on. If you change that password later, run the installer again.
+
+By hand instead:
+
 1. In OBS, open **Tools > WebSocket Server Settings**, turn the server on and choose **Show Connect Info**.
 2. Copy the **Server Password**. In the dock, open the gear, then **Go Live**, paste it and choose **Connect to OBS**.
 
@@ -115,7 +119,7 @@ Search covers messages received since the dock opened (about the last 30,000). C
 
 ## Where your sign-in is kept
 
-On your PC, encrypted, inside OBS's own browser storage. The OBS WebSocket password and your YouTube and TikTok keys are kept the same way. Neither is ever in this folder. This stops casual reading, not malware running as you. If the dock is unused for about 30 days, Twitch asks you to sign in again.
+On your PC, encrypted, inside OBS's own browser storage. The OBS WebSocket password and your YouTube and TikTok keys are kept the same way. The installer's saved OBS connection is locked in `connect.js`, and the key that opens it is only in OBS's own settings, in your Windows user folder. Nothing readable is ever in this folder. This stops casual reading, not malware running as you. If the dock is unused for about 30 days, Twitch asks you to sign in again.
 
 ## For developers
 

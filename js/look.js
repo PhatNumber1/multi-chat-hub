@@ -25,7 +25,7 @@
   }
 
   const defaults = {
-    lookVersion: 2, twitchClientId: '', confirmBans: true, demo: false, clean: false, helpLook: false, obsPort: 4455, confirmLive: true,
+    lookVersion: 2, twitchClientId: '', confirmBans: true, demo: false, clean: false, helpLook: false, obsAuto: '', obsPort: 4455, confirmLive: true,
     show: { viewers: true, total: true, live: true, mod: true, labels: true, timestamps: true, logos: true, badges: true, emotes: true, replies: true, modHighlight: true },
     cleanHide: { accounts: true, total: true, search: true, live: true, mod: true, gear: true, timestamps: false, logos: false, badges: false, replies: false },
     colors: { bg: '#1f2126', auto: true, text: '#f1f1f4', time: '#a5a6b1', mod: '#2ecc71', ownNames: false, names: { twitch: '#bf94ff', tiktok: '#4dd0e1', youtube: '#ff8a80', kick: '#7ee06a' }, stats: { viewers: '#ffffff', total: '#ffffff' } },

@@ -6,8 +6,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Multi Chat Hub Setup")]
@@ -65,6 +67,7 @@ static class Core
             if (File.Exists(p)) File.Delete(p);
             dirs.Add(Path.GetDirectoryName(p));
         }
+        if (File.Exists(AutoConnect.File_)) File.Delete(AutoConnect.File_);
         dirs.Add(Target);
         var list = new List<string>(dirs);
         list.Sort((a, b) => b.Length - a.Length);
@@ -73,13 +76,20 @@ static class Core
     }
 
     // Returns the new line value with our dock added, or the same value if it is already there.
-    public static string AddDock(string json, string url)
+    // key: goes after # in the address, so the dock can unlock the saved OBS connection. Null leaves it as it is.
+    public static string AddDock(string json, string url, string key)
     {
         json = json.Trim();
         if (json.Length == 0) json = "[]";
         if (!json.StartsWith("[") || !json.EndsWith("]")) throw new InvalidDataException("OBS's dock list is in a form this installer does not know, so it was left alone.");
-        if (FindDock(json, url).Success) return json;
-        var item = "{\"title\": \"Multi Chat Hub\", \"url\": \"" + url + "\", \"uuid\": \"" + Guid.NewGuid().ToString("N") + "\"}";
+        var old = FindDock(json, url);
+        if (old.Success)
+        {
+            if (key == null) return json;
+            var changed = new Regex(UrlPattern(url), RegexOptions.IgnoreCase).Replace(old.Value.Replace("\\/", "/"), x => "\"" + url + "#k=" + key + "\"", 1);
+            return changed == old.Value ? json : json.Substring(0, old.Index) + changed + json.Substring(old.Index + old.Length);
+        }
+        var item = "{\"title\": \"Multi Chat Hub\", \"url\": \"" + url + (key == null ? "" : "#k=" + key) + "\", \"uuid\": \"" + Guid.NewGuid().ToString("N") + "\"}";
         var body = json.Substring(1, json.Length - 2).Trim();
         return "[" + (body.Length == 0 ? item : body + ", " + item) + "]";
     }
@@ -98,12 +108,23 @@ static class Core
     static Match FindDock(string json, string url)
     {
         for (var m = Regex.Match(json, "\\{(?:[^{}\"]|\"(?:[^\"\\\\]|\\\\.)*\")*\\}"); m.Success; m = m.NextMatch())
-            if (m.Value.Replace("\\/", "/").IndexOf("\"" + url + "\"", StringComparison.OrdinalIgnoreCase) >= 0) return m;
+            if (Regex.IsMatch(m.Value.Replace("\\/", "/"), UrlPattern(url), RegexOptions.IgnoreCase)) return m;
         return Match.Empty;
+    }
+    static string UrlPattern(string url) { return "\"" + Regex.Escape(url) + "(?:#[^\"\\\\]*)?\""; }
+    // The key already in OBS's dock list, so an update does not need a new one.
+    public static string SavedKey()
+    {
+        var path = Ini();
+        if (path == null) return null;
+        var line = Regex.Match(Encoding.UTF8.GetString(File.ReadAllBytes(path)), "(?m)^" + Key + "([^\\r\\n]*)");
+        var dock = line.Success ? FindDock(line.Groups[1].Value, Url) : Match.Empty;
+        var k = dock.Success ? Regex.Match(dock.Value, "#k=([0-9a-f]{64})\"") : Match.Empty;
+        return k.Success ? k.Groups[1].Value : null;
     }
 
     // Changes only the dock line, and backs the file up first. Returns the backup's name, or null if nothing changed.
-    public static string EditIni(bool add)
+    public static string EditIni(bool add, string key)
     {
         var path = Ini();
         if (path == null)
@@ -118,7 +139,7 @@ static class Core
         string now;
         if (m.Success)
         {
-            var value = add ? AddDock(m.Groups[1].Value, Url) : RemoveDock(m.Groups[1].Value, Url);
+            var value = add ? AddDock(m.Groups[1].Value, Url, key) : RemoveDock(m.Groups[1].Value, Url);
             if (value == m.Groups[1].Value.Trim()) return null;
             now = text.Substring(0, m.Index) + Key + value + text.Substring(m.Index + m.Length);
         }
@@ -126,7 +147,7 @@ static class Core
         {
             if (!add) return null;
             var sec = Regex.Match(text, "(?m)^\\[BasicWindow\\][^\\r\\n]*(\\r?\\n)?");
-            var line = Key + AddDock("[]", Url) + nl;
+            var line = Key + AddDock("[]", Url, key) + nl;
             if (sec.Success) now = text.Insert(sec.Index + sec.Length, (sec.Value.EndsWith("\n") ? "" : nl) + line);
             else now = text + (text.Length == 0 || text.EndsWith("\n") ? "" : nl) + "[BasicWindow]" + nl + line;
         }
@@ -143,16 +164,79 @@ static class Core
     {
         if (ObsOpen) throw new InvalidOperationException("Close OBS first (check the system tray too), then try again.");
         CopyFiles();
-        var b = EditIni(true);
-        return "Installed. Open OBS and tick Docks > Multi Chat Hub if it is not showing." + (b == null ? "" : "\n\nOBS's settings were backed up as " + b + ".");
+        string note = "", key = null;
+        if (AutoConnect.Wanted)
+        {
+            // The dock still works without this, so a problem here never stops the install.
+            try { key = AutoConnect.Prepare(SavedKey()); note = key == null ? "\n\nOBS's connection settings were not found. Open OBS once, close it, and run this again to connect by itself." : "\n\nThe dock will connect to OBS by itself."; }
+            catch (Exception e) { key = null; note = "\n\nIt could not set up the OBS connection: " + e.Message; }
+        }
+        var b = EditIni(true, key);
+        return "Installed. Open OBS and tick Docks > Multi Chat Hub if it is not showing." + note + (b == null ? "" : "\n\nOBS's settings were backed up as " + b + ".");
     }
     public static string Uninstall()
     {
         if (ObsOpen) throw new InvalidOperationException("Close OBS first (check the system tray too), then try again.");
-        var b = EditIni(false);
+        var b = EditIni(false, null);
         RemoveFiles();
         return "Removed." + (b == null ? "" : "\n\nOBS's settings were backed up as " + b + ".");
     }
+}
+
+// Lets the dock connect to OBS without anyone copying a password. OBS's own WebSocket
+// password is locked (AES-256 + HMAC-SHA256) in connect.js next to the dock. The key that
+// opens it is only in OBS's settings, in this Windows user's folder, where the password
+// already is. Nothing is sent anywhere.
+static class AutoConnect
+{
+    public static bool Wanted = true;
+    public static string File_ { get { return Path.Combine(Core.Target, "connect.js"); } }
+    static string ObsFile { get { return Path.Combine(Core.Config, @"plugin_config\obs-websocket\config.json"); } }
+
+    // Returns the key for the dock's address, or null when OBS has no connection settings yet.
+    public static string Prepare(string savedKey)
+    {
+        if (!File.Exists(ObsFile)) return null;
+        var text = Encoding.UTF8.GetString(File.ReadAllBytes(ObsFile)).TrimStart('\uFEFF');
+        // The reader's own error would repeat the file's contents, password included, so it is not shown.
+        Dictionary<string, object> c = null;
+        try { c = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(text); } catch (Exception) { }
+        if (c == null) throw new InvalidDataException("OBS's connection settings could not be read.");
+        int port = c.ContainsKey("server_port") ? Convert.ToInt32(c["server_port"]) : 4455;
+        bool auth = !c.ContainsKey("auth_required") || Convert.ToBoolean(c["auth_required"]);
+        var password = auth && c.ContainsKey("server_password") ? Convert.ToString(c["server_password"]) : "";
+        if (port < 1 || port > 65535) throw new InvalidDataException("OBS's port number is not usable.");
+        if (auth && password.Length == 0) throw new InvalidDataException("OBS has no WebSocket password yet. Set one in Tools > WebSocket Server Settings.");
+        if (!c.ContainsKey("server_enabled") || !Convert.ToBoolean(c["server_enabled"])) TurnOn(text);
+
+        var key = savedKey == null ? Random(32) : Bytes(savedKey);
+        var iv = Random(16);
+        byte[] box;
+        using (var aes = new AesCryptoServiceProvider { KeySize = 256, Mode = CipherMode.CBC, Padding = PaddingMode.PKCS7, Key = Mac(key, Encoding.ASCII.GetBytes("lock")), IV = iv })
+        using (var e = aes.CreateEncryptor())
+        {
+            var plain = Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new Dictionary<string, object> { { "port", port }, { "password", password } }));
+            box = e.TransformFinalBlock(plain, 0, plain.Length);
+        }
+        var both = new byte[iv.Length + box.Length];
+        iv.CopyTo(both, 0);
+        box.CopyTo(both, iv.Length);
+        var tag = Mac(Mac(key, Encoding.ASCII.GetBytes("check")), both);
+        File.WriteAllText(File_, "window.MCH_CONNECT = { box: '" + Convert.ToBase64String(both) + "', tag: '" + Convert.ToBase64String(tag) + "' };\n", new UTF8Encoding(false));
+        return BitConverter.ToString(key).Replace("-", "").ToLowerInvariant();
+    }
+    // Changes only whether the server is on, and backs the file up first. The password stays on.
+    static void TurnOn(string text)
+    {
+        var now = Regex.Replace(text, "(\"server_enabled\"\\s*:\\s*)false", "$1true");
+        if (now == text) throw new InvalidDataException("Turn on Tools > WebSocket Server Settings > Enable WebSocket server in OBS.");
+        if (Core.ObsOpen) throw new InvalidOperationException("OBS was opened. Close it and try again.");
+        File.Copy(ObsFile, ObsFile + ".multi-chat-hub-" + DateTime.Now.ToString("yyyyMMddTHHmmssfff") + ".bak", false);
+        File.WriteAllText(ObsFile, now, new UTF8Encoding(false));
+    }
+    static byte[] Random(int n) { var b = new byte[n]; using (var r = new RNGCryptoServiceProvider()) r.GetBytes(b); return b; }
+    static byte[] Mac(byte[] key, byte[] data) { using (var h = new HMACSHA256(key)) return h.ComputeHash(data); }
+    static byte[] Bytes(string hex) { var b = new byte[hex.Length / 2]; for (int i = 0; i < b.Length; i++) b[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16); return b; }
 }
 
 // Its own little window, one step at a time: what it does, close OBS, done.
@@ -161,6 +245,7 @@ class Setup : Form
     static readonly Color Purple = Color.FromArgb(0x5B, 0x2F, 0xC4), Ink = Color.FromArgb(0x1C, 0x1C, 0x1F), Line = Color.FromArgb(0xDD, 0xDD, 0xE3);
     readonly Label head = new Label(), body = new Label();
     readonly RadioButton update = new RadioButton(), uninstall = new RadioButton();
+    readonly CheckBox auto = new CheckBox();
     readonly Button back = new Button(), next = new Button();
     readonly Timer watch = new Timer();
     int step = 0;
@@ -191,6 +276,10 @@ class Setup : Form
         update.Text = "Update to " + Core.Version;
         uninstall.Text = "Uninstall";
         update.Checked = true;
+        auto.Text = "Connect to OBS by itself, with no password to copy";
+        auto.Checked = true;
+        auto.SetBounds(26, 250, 430, 26);
+        auto.CheckedChanged += delegate { AutoConnect.Wanted = auto.Checked; };
         update.CheckedChanged += delegate { Show(step); };
         Style(back, 238, false);
         Style(next, 352, true);
@@ -200,7 +289,7 @@ class Setup : Form
         AcceptButton = next;
         watch.Interval = 1000;
         watch.Tick += delegate { if (step == 1) Show(1); };
-        Controls.AddRange(new Control[] { logo, title, Rule(82), head, update, uninstall, body, Rule(282), back, next });
+        Controls.AddRange(new Control[] { logo, title, Rule(82), head, update, uninstall, auto, body, Rule(282), back, next });
         Show(0);
     }
     static void Style(Button b, int x, bool main)
@@ -225,12 +314,13 @@ class Setup : Form
         step = to;
         bool choose = step == 0 && Core.Installed;
         update.Visible = uninstall.Visible = choose;
+        auto.Visible = step == 0 && !Removing;
         back.Visible = step == 1 || (step == 2 && !done);
         next.Enabled = true;
         if (step == 0)
         {
             head.Text = "A private chat dock for OBS";
-            body.Height = choose ? 60 : 130;
+            body.Height = choose ? 60 : 116;
             body.Text = choose ? "It is already installed. What would you like to do?"
                 : "Nothing shows on stream and nothing runs in the background. Your other docks are not changed.\n\nIt goes here:\n" + Core.Target;
             next.Text = "Next";
@@ -242,7 +332,7 @@ class Setup : Form
             head.Text = open ? "Close OBS" : "Ready";
             body.Text = open ? "OBS is open. Close it to continue. Check the system tray too.\n\nWaiting for OBS to close..."
                 : Removing ? "This removes the dock from OBS.\n\nTo remove saved sign-ins too, go Back, open OBS and sign out inside the dock first."
-                : "OBS is closed. Your sign-ins and settings are kept.";
+                : "OBS is closed. Your sign-ins and settings are kept." + (auto.Checked ? "\n\nOBS's WebSocket server will be turned on if it is off. Its password stays on and is saved locked, on this PC only." : "");
             next.Text = Removing ? "Uninstall" : Core.Installed ? "Update" : "Install";
             next.Enabled = !open;
         }
@@ -268,7 +358,7 @@ class Setup : Form
         }
     }
 
-    // Developer options: /install or /uninstall with no window, /target:folder, /config:folder
+    // Developer options: /install or /uninstall with no window, /target:folder, /config:folder, /noconnect
     [STAThread]
     static int Main(string[] args)
     {
@@ -277,6 +367,7 @@ class Setup : Form
         {
             if (a.StartsWith("/target:")) Core.Target = Path.GetFullPath(a.Substring(8));
             else if (a.StartsWith("/config:")) { Core.Config = Path.GetFullPath(a.Substring(8)); Core.SkipObsCheck = true; }
+            else if (a == "/noconnect") AutoConnect.Wanted = false;
             else if (a == "/install" || a == "/uninstall") run = a;
         }
         if (run != null)

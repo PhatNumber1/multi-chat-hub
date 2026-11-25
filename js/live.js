@@ -5,7 +5,7 @@
   const { KINDS, Outputs, ObsClient, DemoObs, platformOf, startOrder, stopOrder } = MCH.obs;
   const bar = document.getElementById('live'), drawer = document.getElementById('outputs');
   const BADGE = { instagram: 'IG', facebook: 'FB', trovo: 'TR', x: 'X' };
-  let listed = false, client = null, outs = null, open = false, run = 0, hasPassword = false, polling = false, again = false;
+  let autoTried = false, autoUsed = null, usedAuto = false, listed = false, client = null, outs = null, open = false, run = 0, hasPassword = false, polling = false, again = false;
   const busy = new Map(); // output id -> 'Starting…' or 'Stopping…'
 
   const label = (o) => settings.liveNames[o.id] || o.name;
@@ -200,6 +200,8 @@
     client = outs = null;
     listed = false;
     busy.clear();
+    if (!autoTried) { autoTried = true; autoUsed = MCH.auto.use(); }
+    if (await autoUsed) usedAuto = true;
     const password = await MCH.secrets.get('obs');
     if (id !== run) return;
     hasPassword = password != null;
@@ -247,7 +249,7 @@
   /* ---------- settings ---------- */
 
   function settingsSection() {
-    const kids = [MCH.conn ? MCH.conn.light('obs', 'OBS') : '', el('p', { class: 'dim' }, 'In OBS: Tools > WebSocket Server Settings > Show Connect Info. Copy the Server Password and paste it here. It is kept encrypted on this PC and only used to reach OBS on this PC.')];
+    const kids = [MCH.conn ? MCH.conn.light('obs', 'OBS') : '', el('p', { class: 'dim' }, usedAuto || (settings.obsAuto && hasPassword) ? 'The installer connected this by itself. If you change the WebSocket password in OBS, run the installer again.' : 'Easiest: close OBS and run the installer again with Connect to OBS by itself ticked. Or by hand, in OBS: Tools > WebSocket Server Settings > Show Connect Info. Copy the Server Password and paste it here. It is kept encrypted on this PC and only used to reach OBS on this PC.')];
     const pass = el('input', { type: 'password', placeholder: hasPassword ? 'Saved. Paste to replace' : 'Server Password', autocomplete: 'off', 'aria-label': 'OBS WebSocket password' });
     const port = el('input', { type: 'text', value: String(settings.obsPort), 'aria-label': 'OBS WebSocket port' });
     const save = async () => {

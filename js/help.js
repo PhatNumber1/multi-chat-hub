@@ -18,7 +18,7 @@
     readme: ['Multi Chat Hub on GitHub', 'https://github.com/PhatNumber1/multi-chat-hub'],
     issues: ['Report a problem', 'https://github.com/PhatNumber1/multi-chat-hub/issues'],
   };
-  // Opens in the normal browser. Copy is there in case OBS does not open it.
+  // May open inside OBS or in the normal browser. Copy is there to choose.
   function link(id) {
     const [text, href] = LINKS[id];
     return el('span', { class: 'helpLink' }, el('a', { href, target: '_blank', rel: 'noopener' }, text),
@@ -57,6 +57,8 @@
       el('h3', {}, 'Step by step'),
       s('1. Connect OBS',
         p('This makes the Go Live buttons work. Connecting does not start anything.'),
+        p(b('By itself: '), 'close OBS, run the installer from ', link('releases'), ' and leave ', b('Connect to OBS by itself'), ' ticked. Open OBS and the light turns green. Run it again if you ever change the WebSocket password.'),
+        p(b('By hand:')),
         steps(['In OBS, open ', b('Tools > WebSocket Server Settings'), '.'],
           ['Tick ', b('Enable WebSocket server'), ' and check that ', b('Server Port'), ' is ', b('4455'), '.'],
           ['Choose ', b('Show Connect Info'), ', then ', b('Copy'), ' beside ', b('Server Password'), '.'],
@@ -88,6 +90,7 @@
         steps(['Open ', link('ytApi'), '. If Google asks, make a project. Any name is fine.'],
           ['Choose ', b('Enable'), '.'],
           ['Open ', link('ytKeys'), ' and choose ', b('Create credentials > API key'), '. Copy the key.'],
+          ['Do not choose ', b('Try this API'), '. It is only a help page.'],
           ['If Google offers restrictions, limit it to ', b('YouTube Data API v3'), '. Leave website restrictions off, because the dock is not a website.'],
           ['Choose ', b('Add account > YouTube'), ', type your @handle and paste the key.']),
         p('The free daily limit lasts about 5.4 hours of chat. The slider in the account’s settings makes it last longer. More: ', link('ytDocs')),
@@ -129,7 +132,7 @@
         points('It asks you to sign in again: open the account’s box and sign in. This also happens after about 30 days without use.', 'Actions are greyed out: sign out and in once so Twitch allows the newer ones.', '“Does not recognise that Client ID”: copy it again, and check the app’s Client Type is Public.')),
       s('Kick, TikTok or YouTube problems',
         points('“Update Multi Chat Hub” on Kick: Kick changed something. Get the newest version below.', '“Did not accept the key”: copy the key again and save it in the account’s settings.', 'TikTok says Not live but you are: choose Connect now in its settings, and check the name.', 'YouTube’s daily limit is used up: it resets at midnight Pacific time.')),
-      s('A link does not open', p('Choose Copy beside the link and paste it into your browser.')),
+      s('A link does not open', p('Links can open in a window inside OBS. To use your normal browser, choose Copy beside the link and paste it there.')),
       s('Try it safely', p('Demo chat, at the bottom of Settings, uses made-up chat and a made-up OBS. Nothing real happens.')),
 
       el('h3', {}, 'Privacy and updates'),

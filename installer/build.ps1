@@ -11,7 +11,7 @@ $info = Join-Path $env:TEMP "mch-version-$PID.cs"
 $files = @(Get-Item "$root\dock.html", "$root\README.md") + @(Get-ChildItem "$root\css", "$root\js" -File)
 $res = $files | ForEach-Object { '/resource:' + $_.FullName + ',app/' + $_.FullName.Substring($root.Length + 1).Replace('\', '/') }
 $out = "$dist\MultiChatHub-Setup-$version.exe"
-& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/out:$out" "/win32icon:$PSScriptRoot\logo.ico" "/resource:$PSScriptRoot\logo.png,logo.png" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll $res "$PSScriptRoot\Installer.cs" $info
+& $csc /nologo /target:winexe /platform:anycpu /optimize+ "/out:$out" "/win32icon:$PSScriptRoot\logo.ico" "/resource:$PSScriptRoot\logo.png,logo.png" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll $res "$PSScriptRoot\Installer.cs" $info
 $code = $LASTEXITCODE
 Remove-Item $info
 if ($code -ne 0) { throw "Compiler failed ($code)" }

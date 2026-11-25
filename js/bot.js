@@ -186,7 +186,7 @@
   async function connectObs() {
     if (!await leaveDemo()) return;
     if (MCH.live.state().state === 'ok') { say('OBS is already connected.'); next(); return; }
-    say('In OBS open Tools > WebSocket Server Settings. Tick Enable WebSocket server, choose Show Connect Info, then Copy beside Server Password. Paste it here:',
+    say('Easiest: close OBS and run the Multi Chat Hub installer (0.7.0 or newer) with Connect to OBS by itself ticked. Then there is nothing to copy. Or do it now: in OBS open Tools > WebSocket Server Settings. Tick Enable WebSocket server, choose Show Connect Info, then Copy beside Server Password. Paste it here:',
       secret('Server Password', 'Connect', async (v) => {
         const wait = say('Connecting…');
         await MCH.live.connect(v, settings.obsPort);
