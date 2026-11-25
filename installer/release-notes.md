@@ -1,9 +1,9 @@
-**Test build. Not yet tested inside a real OBS or with a real Twitch sign-in.**
+**Test build.** Twitch sign-in works inside OBS. Kick chat was tested live. YouTube and TikTok have not been tried with a real key yet.
 
 1. Close OBS.
-2. Download and run the `.exe` below, then choose **Install**.
+2. Download and run the `.exe` below and follow the steps.
 3. Open OBS and tick **Docks > Multi Chat Hub** if it is not showing.
 
 The installer is not signed, so Windows may show a warning. It was built by GitHub from the source in this repository.
 
-Included: one Twitch channel (chat, viewer count, moderation), Go Live buttons for OBS and Aitum Stream Suite, a Moderator page, looks and themes, clean mode and chat search. TikTok is not included yet.
+New: a cleaner look, several accounts at once, a box and a chat switch for each account, and settings for each one. Kick, YouTube and TikTok are read-only. Instagram, Facebook, Rumble, Trovo and X are links.

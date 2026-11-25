@@ -80,3 +80,41 @@ test('clean mode hides only what is chosen and restores it', () => {
   v = L.visible(s);
   assert.equal(v.gear, true);
 });
+
+test('old default colors move to the new ones once, and chosen colors stay', () => {
+  const s = L.sanitize({ colors: { bg: '#16171b', text: '#abcdef', time: '#9a9ea8' } });
+  assert.equal(s.colors.bg, L.defaults.colors.bg);
+  assert.equal(s.colors.text, '#abcdef');
+  assert.equal(s.colors.time, L.defaults.colors.time);
+  assert.equal(L.sanitize({ lookVersion: 2, colors: { bg: '#16171b' } }).colors.bg, '#16171b');
+});
+
+test('stat numbers stay readable on their box', () => {
+  for (const viewers of ['#000000', '#2b2d35', '#0000ff', '#ff0000']) {
+    const c = Object.assign({}, L.defaults.colors, { stats: { viewers, total: '#ffffff' } });
+    assert.ok(L.contrast(L.statColor(c, 'viewers'), '#2b2d35') >= 4.5, viewers);
+  }
+  assert.equal(L.statColor(L.defaults.colors, 'total'), '#ffffff');
+});
+
+test('accounts are kept when good, and dropped or repaired when not', () => {
+  const s = L.sanitize({ accounts: [
+    { id: 'a1', platform: 'kick', channel: 'someone', nick: '  Main  ', every: 999, color: 'red', chat: false, token: 'no' },
+    { id: 'a1', platform: 'kick', channel: 'same id' }, { id: '../x', platform: 'kick' }, { id: 'a2', platform: 'nope' }, null, 'x',
+    { id: 'a3', platform: 'instagram', channel: 'javascript:alert(1)' }, { id: 'a4', platform: 'other', channel: 'https://example.com/chat' },
+  ] });
+  assert.deepEqual(plain(s.accounts.map((a) => a.id)), ['a1', 'a4']);
+  const a = s.accounts[0];
+  assert.equal(a.nick, 'Main');
+  assert.equal(a.every, 60);
+  assert.equal(a.color, '');
+  assert.equal(a.chat, false);
+  assert.equal(a.viewers, true);
+  assert.ok(!('token' in a));
+});
+
+test('one account can have its own color', () => {
+  const m = { account: { platform: 'kick' }, color: '' };
+  assert.equal(L.nameColor(m, L.defaults.colors, '#ffff00'), '#ffff00');
+  assert.equal(L.nameColor(m, L.defaults.colors, ''), L.defaults.colors.names.kick);
+});

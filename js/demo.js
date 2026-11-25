@@ -19,7 +19,7 @@
   MCH.DemoAccount = class {
     constructor(emit, platform) {
       const tiktok = platform === 'tiktok';
-      Object.assign(this, { platform: platform || 'twitch', emit, name: tiktok ? 'DemoTikTok' : 'DemoChannel', status: 'ok', note: 'Demo: made-up chat', viewers: tiktok ? 118 : 42, n: 0, demo: true });
+      Object.assign(this, { id: 'demo-' + (platform || 'twitch'), cfg: MCH.look.oneAccount({ id: 'demo-' + (platform || 'twitch'), platform: platform || 'twitch' }), platform: platform || 'twitch', emit, name: tiktok ? 'DemoTikTok' : 'DemoChannel', status: 'ok', note: 'Demo: made-up chat', viewers: tiktok ? 118 : 42, n: 0, demo: true });
       if (tiktok) this.readOnly = 'TikTok is read-only in this dock';
     }
     start() {

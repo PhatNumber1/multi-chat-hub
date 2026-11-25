@@ -17,7 +17,7 @@
   }
 
   // Device sign-in. onCode gets { user_code, verification_uri }; signal.cancelled stops it.
-  async function deviceLogin(clientId, onCode, signal) {
+  async function deviceLogin(clientId, onCode, signal, secret = 'twitch') {
     const start = await form('device', { client_id: clientId, scopes: SCOPES });
     if (!start.ok) throw new Error(start.j.message === 'invalid client' ? 'Twitch does not recognise that Client ID.' : (start.j.message || 'Twitch refused to start sign-in.'));
     if (signal.cancelled) return null;
@@ -34,7 +34,7 @@
       if (signal.cancelled) return null;
       if (r.ok) {
         const t = { clientId, access: r.j.access_token, refresh: r.j.refresh_token };
-        await MCH.secrets.set('twitch', t);
+        await MCH.secrets.set(secret, t);
         return t;
       }
       const m = r.j.message || '';
@@ -45,7 +45,8 @@
   }
 
   class TwitchAccount {
-    constructor(token, emit) {
+    constructor(token, emit, secret = 'twitch') { // secret: where this sign-in is kept
+      this.secret = secret;
       this.platform = 'twitch';
       this.token = token;
       this.emit = emit;
@@ -100,7 +101,7 @@
     authLost() {
       if (this.stopped) return;
       this.stop();
-      MCH.secrets.del('twitch');
+      MCH.secrets.del(this.secret);
       this.setStatus('error', 'Signed out, sign in again');
       this.emit('authLost', this);
     }
@@ -113,8 +114,8 @@
 
     // Twitch refresh tokens work once, so only one dock may refresh at a time.
     refresh(usedAccess) {
-      return MCH.withLock('mch.refresh.twitch', async () => {
-        const saved = await MCH.secrets.get('twitch');
+      return MCH.withLock('mch.refresh.' + this.secret, async () => {
+        const saved = await MCH.secrets.get(this.secret);
         if (!saved) throw new AuthError('Signed out');
         if (saved.access !== usedAccess) { this.token = saved; return; }
         const r = await form('token', { client_id: saved.clientId, grant_type: 'refresh_token', refresh_token: saved.refresh });
@@ -123,7 +124,7 @@
           throw new ApiError(r.status, 'Twitch sign-in is unavailable');
         }
         this.token = { clientId: saved.clientId, access: r.j.access_token, refresh: r.j.refresh_token };
-        await MCH.secrets.set('twitch', this.token);
+        await MCH.secrets.set(this.secret, this.token);
       });
     }
 

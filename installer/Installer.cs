@@ -155,54 +155,117 @@ static class Core
     }
 }
 
+// Its own little window, one step at a time: what it does, close OBS, done.
 class Setup : Form
 {
-    readonly Label status = new Label();
-    readonly Button install = new Button(), remove = new Button();
+    static readonly Color Purple = Color.FromArgb(0x5B, 0x2F, 0xC4), Ink = Color.FromArgb(0x1C, 0x1C, 0x1F), Line = Color.FromArgb(0xDD, 0xDD, 0xE3);
+    readonly Label head = new Label(), body = new Label();
+    readonly RadioButton update = new RadioButton(), uninstall = new RadioButton();
+    readonly Button back = new Button(), next = new Button();
+    readonly Timer watch = new Timer();
+    int step = 0;
+    bool done = false;
+    string result = "";
 
     Setup()
     {
         Text = "Multi Chat Hub Setup";
         Font = new Font("Segoe UI", 10f);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(440, 270);
+        ClientSize = new Size(480, 350);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(22, 23, 27);
-        ForeColor = Color.FromArgb(232, 233, 236);
-        var title = new Label { Text = "Multi Chat Hub " + Core.Version, Font = new Font("Segoe UI", 15f, FontStyle.Bold), Location = new Point(20, 16), AutoSize = true };
-        status.SetBounds(22, 60, 396, 140);
-        status.Text = "Adds a private chat dock to OBS. Nothing runs in the background and nothing shows on stream." +
-            "\n\nClose OBS before you start. Your other docks are not changed.\n\nInstalls to:\n" + Core.Target;
-        install.Text = Core.Installed ? "Update" : "Install";
-        install.SetBounds(298, 218, 120, 36);
-        remove.Text = "Uninstall";
-        remove.SetBounds(168, 218, 120, 36);
-        remove.Enabled = Core.Installed;
-        foreach (var b in new[] { install, remove })
-        {
-            b.FlatStyle = FlatStyle.Flat;
-            b.BackColor = b == install ? Color.FromArgb(122, 53, 224) : Color.FromArgb(50, 53, 61);
-            Controls.Add(b);
-        }
-        Controls.Add(title);
-        Controls.Add(status);
-        AcceptButton = install;
-        install.Click += delegate { Do(Core.Install); };
-        remove.Click += delegate
-        {
-            if (MessageBox.Show(this, "Remove Multi Chat Hub from OBS?\n\nTo remove saved sign-ins too, sign out inside the dock first.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes) Do(Core.Uninstall);
-        };
+        BackColor = Color.White;
+        ForeColor = Ink;
+        Icon = Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
+        var logo = new PictureBox { SizeMode = PictureBoxSizeMode.Zoom };
+        using (var st = Assembly.GetExecutingAssembly().GetManifestResourceStream("logo.png")) logo.Image = new Bitmap(st);
+        logo.SetBounds(24, 18, 46, 46);
+        var title = new Label { Text = "Multi Chat Hub " + Core.Version, Font = new Font("Segoe UI", 15f, FontStyle.Bold), Location = new Point(82, 26), AutoSize = true };
+        head.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+        head.SetBounds(24, 100, 432, 26);
+        body.SetBounds(24, 130, 432, 112);
+        update.SetBounds(26, 196, 420, 26);
+        uninstall.SetBounds(26, 224, 420, 26);
+        update.Text = "Update to " + Core.Version;
+        uninstall.Text = "Uninstall";
+        update.Checked = true;
+        update.CheckedChanged += delegate { Show(step); };
+        Style(back, 238, false);
+        Style(next, 352, true);
+        back.Text = "Back";
+        back.Click += delegate { Show(step - 1); };
+        next.Click += delegate { Next(); };
+        AcceptButton = next;
+        watch.Interval = 1000;
+        watch.Tick += delegate { if (step == 1) Show(1); };
+        Controls.AddRange(new Control[] { logo, title, Rule(82), head, update, uninstall, body, Rule(282), back, next });
+        Show(0);
     }
-
-    void Do(Func<string> work)
+    static void Style(Button b, int x, bool main)
     {
-        try { status.Text = work(); }
-        catch (UnauthorizedAccessException) { status.Text = "Windows did not allow changes in:\n" + Core.Target + "\n\nRight-click this installer and choose Run as administrator."; }
-        catch (Exception e) { status.Text = e.Message; }
-        install.Text = Core.Installed ? "Update" : "Install";
-        remove.Enabled = Core.Installed;
+        b.SetBounds(x, 298, 104, 36);
+        b.FlatStyle = FlatStyle.Flat;
+        b.FlatAppearance.BorderColor = main ? Purple : Line;
+        b.EnabledChanged += delegate { Tint(b, main); };
+        Tint(b, main);
+    }
+    static void Tint(Button b, bool main)
+    {
+        b.BackColor = !main ? Color.White : b.Enabled ? Purple : Color.FromArgb(0xC9, 0xC9, 0xD2);
+        b.FlatAppearance.BorderColor = main ? b.BackColor : Line;
+        b.ForeColor = main ? Color.White : Ink;
+    }
+    static Control Rule(int y) { var l = new Label { BackColor = Line }; l.SetBounds(24, y, 432, 1); return l; }
+
+    bool Removing { get { return Core.Installed && uninstall.Checked; } }
+    void Show(int to)
+    {
+        step = to;
+        bool choose = step == 0 && Core.Installed;
+        update.Visible = uninstall.Visible = choose;
+        back.Visible = step == 1 || (step == 2 && !done);
+        next.Enabled = true;
+        if (step == 0)
+        {
+            head.Text = "A private chat dock for OBS";
+            body.Height = choose ? 60 : 130;
+            body.Text = choose ? "It is already installed. What would you like to do?"
+                : "Nothing shows on stream and nothing runs in the background. Your other docks are not changed.\n\nIt goes here:\n" + Core.Target;
+            next.Text = "Next";
+        }
+        else if (step == 1)
+        {
+            bool open = Core.ObsOpen;
+            body.Height = 130;
+            head.Text = open ? "Close OBS" : "Ready";
+            body.Text = open ? "OBS is open. Close it to continue. Check the system tray too.\n\nWaiting for OBS to close..."
+                : Removing ? "This removes the dock from OBS.\n\nTo remove saved sign-ins too, go Back, open OBS and sign out inside the dock first."
+                : "OBS is closed. Your sign-ins and settings are kept.";
+            next.Text = Removing ? "Uninstall" : Core.Installed ? "Update" : "Install";
+            next.Enabled = !open;
+        }
+        else
+        {
+            body.Height = 140;
+            head.Text = done ? "Done" : "Not done";
+            body.Text = result;
+            next.Text = "Close";
+        }
+        watch.Enabled = step == 1;
+    }
+    void Next()
+    {
+        if (step == 0) Show(1);
+        else if (step == 2) Close();
+        else
+        {
+            try { result = Removing ? Core.Uninstall() : Core.Install(); done = true; }
+            catch (UnauthorizedAccessException) { result = "Windows did not allow changes in:\n" + Core.Target + "\n\nRight-click this installer and choose Run as administrator."; }
+            catch (Exception e) { result = e.Message; }
+            Show(2);
+        }
     }
 
     // Developer options: /install or /uninstall with no window, /target:folder, /config:folder

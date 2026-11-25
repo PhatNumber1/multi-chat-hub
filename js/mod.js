@@ -1,11 +1,11 @@
 (function () {
   'use strict';
   const { el, settings } = MCH;
-  const { accounts, ask, toast, form, act, openPanel, renderPanel, section } = MCH.app;
+  const { accounts, ask, toast, form, act, openPanel, renderPanel, section, label } = MCH.app;
   const page = document.getElementById('modPage'), btn = document.getElementById('mod');
   let current = null, chat = null, shield = null, timer = null, load = 0, problem = '';
 
-  const twitch = () => accounts.filter((a) => a.platform === 'twitch' && (a.user || a.demo));
+  const twitch = () => accounts.filter((a) => a.platform === 'twitch' && (a.user || a.demo) && !a.stopped);
   const base = (a) => 'https://dashboard.twitch.tv/u/' + encodeURIComponent(a.user ? a.user.login : a.name.toLowerCase());
   const go = (url) => window.open(url, '_blank', 'noopener');
   const manager = (a) => go(base(a) + '/stream-manager');
@@ -195,14 +195,14 @@
   // Every action. scope: the permission it needs. live: the channel must be live.
   // on: for switches, whether it is on. off: why it can never work from here.
   const GROUPS = [
-    ['Stream', 'purple', {
+    ['Stream', 'stream', {
       info: { name: 'Edit stream info', scope: 'channel:manage:broadcast', run: editInfo },
       clip: { name: 'Make a clip', scope: 'clips:edit', live: true, run: clip },
       marker: { name: 'Add a marker', scope: 'channel:manage:broadcast', live: true, run: async (a) => { const v = await form('Add a stream marker', [text('d', 'Note (optional)', 140)], 'Add'); if (v) await run(() => a.marker(v.d.trim()), 'Marker added'); } },
       ad: { name: 'Run an ad', scope: 'channel:edit:commercial', live: true, run: async (a) => { const v = await form('Run an ad on ' + a.name, [select('s', 'Length', [['30', '30 seconds'], ['60', '1 minute'], ['90', '1.5 minutes'], ['120', '2 minutes'], ['150', '2.5 minutes'], ['180', '3 minutes']])], 'Run ad'); if (v) await run(() => a.commercial(Number(v.s)), 'Ad starting'); } },
       snooze: { name: 'Snooze next ad', scope: 'channel:manage:ads', live: true, run: (a) => run(() => a.snoozeAd(), 'Next ad pushed back 5 minutes') },
     }],
-    ['Community', 'pink', {
+    ['Community', 'heart', {
       raid: { name: 'Raid a channel', scope: 'channel:manage:raids', run: raid },
       unraid: { name: 'Cancel raid', scope: 'channel:manage:raids', run: (a) => run(() => a.cancelRaid(), 'Raid cancelled') },
       poll: { name: 'Poll', scope: 'channel:manage:polls', run: poll },
@@ -216,7 +216,7 @@
       hype: opens('Hype Train'),
       charity: opens('Charity'),
     }],
-    ['Chat', 'blue', {
+    ['Chat', 'chat', {
       follow: { name: 'Follower-only chat', scope: CHAT, on: (c) => c.follower_mode, note: (c) => (c.follower_mode && c.follower_mode_duration ? c.follower_mode_duration + ' min' : ''), run: followers },
       subs: { name: 'Subscriber-only chat', scope: CHAT, on: (c) => c.subscriber_mode, run: toggle('subscriber_mode', 'Subscriber-only chat') },
       emote: { name: 'Emote-only chat', scope: CHAT, on: (c) => c.emote_mode, run: toggle('emote_mode', 'Emote-only chat') },
@@ -225,14 +225,14 @@
       delay: { name: 'Chat delay', scope: CHAT, on: (c) => c.non_moderator_chat_delay, note: (c) => (c.non_moderator_chat_delay ? c.non_moderator_chat_delay_duration + ' s' : ''), run: delay },
       clear: { name: 'Clear chat', red: true, scope: 'moderator:manage:chat_messages', run: async (a) => { if (await ask('Clear all of ' + a.name + '’s chat? This cannot be undone.', 'Clear chat')) await run(() => a.clearChat(), 'Chat cleared'); } },
     }],
-    ['Safety', 'red', {
+    ['Safety', 'shield', {
       shield: { name: 'Shield Mode', scope: 'moderator:manage:shield_mode', shield: true, on: () => shield, run: shieldMode },
       automod: { name: 'AutoMod level', scope: 'moderator:manage:automod_settings', run: automod },
       terms: { name: 'Blocked words', scope: 'moderator:manage:blocked_terms', run: blockedTerms },
       unbans: { name: 'Unban requests', scope: 'moderator:manage:unban_requests', run: unbanRequests },
       verify: opens('Verified-only chat'),
     }],
-    ['People', 'teal', {
+    ['People', 'person', {
       ban: { name: 'Ban someone', scope: BANS, run: (a) => person(a, 'Ban someone from ' + a.name, 'Ban', (u) => a.ban(u.id, 0), 'banned') },
       timeout: { name: 'Time someone out', scope: BANS, run: (a) => person(a, 'Time someone out', 'Time out', (u, v) => a.ban(u.id, Number(v.s)), 'timed out', [select('s', 'For', [['60', '1 minute'], ['600', '10 minutes'], ['3600', '1 hour'], ['86400', '1 day'], ['604800', '1 week'], ['1209600', '2 weeks']], '600')]) },
       unban: { name: 'Unban someone', scope: BANS, run: (a) => person(a, 'Unban or end a timeout', 'Unban', (u) => a.unban(u.id), 'can chat again') },
@@ -243,7 +243,7 @@
       vip: { name: 'Add a VIP', scope: 'channel:manage:vips', run: (a) => person(a, 'Add a VIP', 'Add', (u) => a.addVip(u.id), 'is now a VIP') },
       unvip: { name: 'Remove a VIP', scope: 'channel:manage:vips', run: (a) => person(a, 'Remove a VIP', 'Remove', (u) => a.removeVip(u.id), 'is no longer a VIP') },
     }],
-    ['Shortcuts', 'gray', {
+    ['Shortcuts', 'link', {
       manager: opens('Stream Manager'),
       channel: { name: 'My channel page', note: () => 'Opens Twitch', run: (a) => go('https://www.twitch.tv/' + encodeURIComponent(a.user ? a.user.login : a.name.toLowerCase())) },
       popout: { name: 'Pop-out chat', note: () => 'Opens Twitch', run: (a) => go('https://www.twitch.tv/popout/' + encodeURIComponent(a.user ? a.user.login : a.name.toLowerCase()) + '/chat') },
@@ -251,7 +251,7 @@
     }],
   ];
 
-  function tile(color, t) {
+  function tile(t) {
     const a = current, c = chat || {};
     let why = t.off || '';
     if (!why && t.scope && !a.can(t.scope)) why = 'Sign in to Twitch again to allow this';
@@ -259,7 +259,7 @@
     if (!why && t.scope === CHAT && !chat) why = 'Reading from Twitch…';
     if (!why && t.shield && shield == null) why = 'Reading from Twitch…';
     const on = t.on && !why ? !!t.on(c) : null, note = why || (t.note ? t.note(c) : '');
-    const b = el('button', { type: 'button', class: 'tile ' + (t.red ? 'red' : color) + (on ? ' isOn' : '') + (t.add ? ' add' : ''), disabled: !!why, title: why, on: { click: () => t.run(a, c) } },
+    const b = el('button', { type: 'button', class: 'tile' + (t.red ? ' red' : '') + (on ? ' isOn' : '') + (t.add ? ' add' : ''), disabled: !!why, title: why, on: { click: () => t.run(a, c) } },
       el('span', {}, t.name), on == null ? '' : el('small', { class: 'sw' }, on ? 'On' : 'Off'), note ? el('small', {}, note) : '');
     if (on != null) b.setAttribute('aria-pressed', String(on));
     return b;
@@ -279,18 +279,18 @@
     }
     const a = current;
     kids.push(el('div', { class: 'tabs', role: 'group', 'aria-label': 'Twitch account' }, ...list.map((x) => {
-      const b = el('button', { type: 'button', class: x === a ? 'sel' : '', on: { click: () => { current = x; chat = shield = null; draw(); refresh(); } } }, el('span', { class: 'dot ' + x.status }), x.name, el('small', {}, x.viewers == null ? 'offline' : x.viewers.toLocaleString()));
+      const b = el('button', { type: 'button', class: x === a ? 'sel' : '', on: { click: () => { current = x; chat = shield = null; draw(); refresh(); } } }, el('span', { class: 'dot ' + x.status }), label(x), el('small', {}, x.viewers == null ? 'offline' : x.viewers.toLocaleString()));
       b.setAttribute('aria-pressed', String(x === a));
       return b;
     })));
     if (!a.demo && a.scopes && MCH.twitch.SCOPES.split(' ').some((s) => !a.can(s))) kids.push(el('p', { class: 'warn' }, 'This sign-in is from an older version. In Settings, sign out and sign in again to use the greyed-out actions.'));
     if (problem) kids.push(el('p', { class: 'warn' }, problem));
     let any = false;
-    for (const [title, color, tiles] of GROUPS) {
-      const show = Object.entries(tiles).filter(([id]) => !settings.modHidden.includes(id)).map(([, t]) => tile(color, t));
-      if (title === 'Shortcuts') show.unshift(...settings.modLinks.map((l) => el('div', { class: 'linkTile' }, el('button', { type: 'button', class: 'tile gray', title: l.url, on: { click: () => go(l.url) } }, el('span', {}, l.name), el('small', {}, 'Opens your browser')),
+    for (const [title, symbol, tiles] of GROUPS) {
+      const show = Object.entries(tiles).filter(([id]) => !settings.modHidden.includes(id)).map(([, t]) => tile(t));
+      if (title === 'Shortcuts') show.unshift(...settings.modLinks.map((l) => el('div', { class: 'linkTile' }, el('button', { type: 'button', class: 'tile', title: l.url, on: { click: () => go(l.url) } }, el('span', {}, l.name), el('small', {}, 'Opens your browser')),
         el('button', { type: 'button', class: 'x', 'aria-label': 'Remove ' + l.name, on: { click: () => dropLink(l) } }, '✕'))));
-      if (show.length) { any = true; kids.push(el('h3', {}, title), el('div', { class: 'tiles' }, ...show)); }
+      if (show.length) { any = true; kids.push(el('h3', {}, MCH.icon(symbol), title), el('div', { class: 'tiles' }, ...show)); }
     }
     if (!any) kids.push(el('p', { class: 'dim' }, 'Everything is hidden. Use Choose what shows to bring actions back.'));
     const f = page.contains(document.activeElement) ? document.activeElement.textContent : null;
@@ -330,7 +330,7 @@
   // A connection can report status often; redraw only when something shown here changed.
   let sig = '';
   function update() {
-    const s = JSON.stringify(twitch().map((a) => [a.name, a.status, a.viewers, a.scopes]));
+    const s = JSON.stringify(twitch().map((a) => [label(a), a.status, a.viewers, a.scopes]));
     if (s !== sig) { sig = s; draw(); }
   }
   MCH.mod = { update, close, settingsSection, groups: GROUPS };

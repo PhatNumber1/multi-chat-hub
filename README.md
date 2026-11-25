@@ -2,26 +2,49 @@
 
 A private chat dock for OBS. It runs inside OBS: no server, no extra app, no browser tab.
 
-**Status: test build 0.4.0.** One Twitch channel (live chat, viewer count, moderation), Go Live buttons, a Moderator page, look settings, clean mode and chat search. Not yet tested inside OBS or with a live Twitch sign-in.
+**Status: test build 0.5.0.** Several accounts at once (Twitch, Kick, YouTube, TikTok), Go Live buttons, a Moderator page, look settings, clean mode and chat search. Twitch sign-in works inside OBS. YouTube and TikTok have not been tried with a real key yet.
 
 ![Demo chat](docs/chat.png)
 
 ## Install
 
 1. Close OBS.
-2. Run `MultiChatHub-Setup-0.4.0.exe` from the Releases page and choose **Install**.
+2. Run `MultiChatHub-Setup-0.5.0.exe` from the Releases page and follow the steps.
 3. Open OBS. If the dock is not showing, tick **Docks > Multi Chat Hub**.
 
 The installer copies the dock to `C:\ProgramData\obs-studio\plugins\MultiChatHub`, backs up OBS's settings, adds one entry to OBS's dock list and exits. Run it again to update or uninstall. It is not signed yet, so Windows may show a warning.
 
 By hand instead: put this folder somewhere permanent, then in OBS open **Docks > Custom Browser Docks** and add the full path of `dock.html`, for example `file:///C:/MultiChatHub/dock.html`.
 
-## Connect Twitch
+## Add your accounts
+
+Choose **Add account** at the top of the dock. Each account gets its own box with its viewer count.
+
+| Platform | What you get | What it needs |
+|---|---|---|
+| Twitch | Chat, viewers, moderation | Sign in (see below) |
+| Kick | Chat and viewers, read-only | The channel name |
+| YouTube | Chat and viewers, read-only | Your own free YouTube API key |
+| TikTok | Chat and viewers, read-only | Your own free Euler Stream key |
+| Instagram, Facebook, Rumble, Trovo, X, other | A box that opens the page | A name or link |
+
+- The **chat bubble** on a box shows or hides that account's chat.
+- Click a box for its own settings: nickname, on or off, chat, viewer count, total, name color, order and remove.
+- Instagram sends live comments only to a web server with an app Meta approved, so a dock inside OBS cannot read them.
+- Kick and TikTok use unofficial connections. They can stop working when those sites change something.
+- YouTube's free daily limit lasts about 5.4 hours of chat at the normal pace. A slider in the account's settings slows it down to last longer.
+
+![Add account](docs/add-account.png)
+![One account's settings](docs/account.png)
+
+### Twitch
 
 1. Go to https://dev.twitch.tv/console/apps and choose **Register Your Application**.
 2. OAuth Redirect URL: `http://localhost`. Category: any. **Client Type: Public.**
 3. Copy the **Client ID**. There is no secret to copy.
-4. In the dock, paste it and choose **Sign in to Twitch**. Enter the code at the Twitch page it shows.
+4. In the dock choose **Add account > Twitch**, paste it and choose **Sign in to Twitch**. Enter the code at the Twitch page it shows.
+
+To add a second Twitch account, log in to that account in your browser first.
 
 To try the dock without signing in, turn on **Demo chat** in its settings.
 
@@ -59,8 +82,9 @@ Open the gear for show/hide toggles, colors, saved themes, font and font size. C
 
 - **Keep text readable automatically** adjusts text and name colors to the background. Turn it off to use your exact colors.
 - If a color picker does not open inside OBS, type the code (like `#1a2b3c`) beside it.
-- The square button beside the gear turns on clean mode. The small corner square brings everything back, and turns yellow or red if a connection has trouble.
+- The button beside the gear turns on clean mode. The small corner button brings everything back, and turns yellow or red if a connection has trouble.
 - Themes save colors only, not the font.
+- The boxes pick the biggest of four sizes that leaves most of the dock for chat.
 
 ## Search
 
@@ -77,17 +101,7 @@ Search covers messages received since the dock opened (about the last 30,000). C
 
 ## Where your sign-in is kept
 
-On your PC, encrypted, inside OBS's own browser storage. The OBS WebSocket password is kept the same way. Neither is ever in this folder. This stops casual reading, not malware running as you. If the dock is unused for about 30 days, Twitch asks you to sign in again.
-
-## Planned: TikTok (Stage 3)
-
-TikTok will be **read-only**, on Euler Stream's free tier, with each streamer using their own free key. No TikTok login or cookies are used.
-
-- Planned: chat, gifts, follows, viewer count, and pinned messages if they can be read.
-- Greyed out with the reason shown: sending messages, pinning, bans, mutes, mod changes.
-- The viewer list is marked "limited", because TikTok only exposes ranked viewers.
-
-This is an unofficial service and can break when TikTok changes something.
+On your PC, encrypted, inside OBS's own browser storage. The OBS WebSocket password and your YouTube and TikTok keys are kept the same way. Neither is ever in this folder. This stops casual reading, not malware running as you. If the dock is unused for about 30 days, Twitch asks you to sign in again.
 
 ## For developers
 

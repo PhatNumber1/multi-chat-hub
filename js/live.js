@@ -4,7 +4,7 @@
   const { ask, toast, form, openPanel, renderPanel, logo, section } = MCH.app;
   const { KINDS, Outputs, ObsClient, DemoObs, platformOf, startOrder, stopOrder } = MCH.obs;
   const bar = document.getElementById('live'), drawer = document.getElementById('outputs');
-  const BADGE = { youtube: ['YT', '#d32020'], instagram: ['IG', '#b5307f'], facebook: ['FB', '#1464cc'], kick: ['K', '#1f7a1f'], trovo: ['TR', '#14785a'], x: ['X', '#444a52'] };
+  const BADGE = { instagram: 'IG', facebook: 'FB', trovo: 'TR', x: 'X' };
   let client = null, outs = null, open = false, run = 0, hasPassword = false, polling = false, again = false;
   const busy = new Map(); // output id -> 'Starting…' or 'Stopping…'
 
@@ -17,11 +17,8 @@
   };
   function icon(o) {
     const p = platformOf(label(o));
-    if (p === 'twitch' || p === 'tiktok') return logo(p);
-    const [t, c] = BADGE[p] || { stream: ['LIVE', '#5b3bb0'], record: ['REC', '#a1242f'], backtrack: ['BT', '#1d55b8'], virtual_cam: ['CAM', '#8a5a00'] }[o.kind];
-    const b = el('span', { class: 'pf', 'aria-hidden': 'true' }, t);
-    b.style.background = c;
-    return b;
+    if (MCH.look.platforms[p]) return logo(p);
+    return BADGE[p] ? el('span', { class: 'pf', 'aria-hidden': 'true' }, BADGE[p]) : MCH.icon(o.kind);
   }
   const button = (text, cls, fn, title) => el('button', { type: 'button', class: cls, title: title || '', on: { click: fn } }, text);
 
@@ -150,7 +147,7 @@
     if (key !== lastDraw || force) {
       lastDraw = key;
       if (!client) {
-        bar.replaceChildren(button('Set up Go Live', '', () => openPanel('Go Live'), 'Connect to OBS'));
+        bar.replaceChildren(button('Set up Go Live', 'goLive', () => openPanel('Go Live'), 'Connect to OBS'));
       } else if (!ready()) {
         bar.replaceChildren(el('span', { class: 'dot ' + (client.state === 'error' ? 'error' : 'reconnecting') }), el('span', { class: 'dim' }, client.state === 'ok' ? 'Reading outputs…' : client.note), button('Settings', '', () => openPanel('Go Live')));
       } else {
@@ -158,13 +155,15 @@
         const main = button('', 'goLive' + (on ? ' on' : ''), on ? endStream : goLive, on ? 'End every running stream' : 'Choose where to go live');
         main.append(el('span', {}, on ? 'End stream' : working ? 'Working…' : 'Go Live'), el('b', { id: 'liveTime' }));
         main.disabled = working && !on; // ending is always possible
-        const more = button(open ? '▴' : '▾', 'more', () => { open = !open; draw(true); }, 'All outputs');
+        const more = button('', 'more', () => { open = !open; draw(true); }, 'All outputs');
+        more.append(MCH.icon(open ? 'up' : 'down'));
         more.setAttribute('aria-expanded', String(open));
         more.setAttribute('aria-label', 'All outputs');
         const extra = outs.list.filter((o) => o.kind !== 'stream' && o.active).map((o) => el('span', { class: 'tiny', title: label(o) + ' is running' }, icon(o)));
-        bar.replaceChildren(main, ...shown().filter((o) => o.kind === 'stream').map(chip), ...extra, client.demo ? el('span', { class: 'dim' }, 'Demo') : '', more);
+        bar.replaceChildren(main, ...extra, more, el('div', { class: 'chips' }, ...shown().filter((o) => o.kind === 'stream').map(chip)));
       }
       drawDrawer();
+      MCH.app.status();
     } else if (open && ready()) {
       // Only the clocks changed.
       const rows = [...drawer.querySelectorAll('.outRow small')];
@@ -243,7 +242,8 @@
     return section('Go Live', ...kids);
   }
 
-  MCH.live = { start, settingsSection, draw };
+  const onAir = () => !!outs && outs.list.some((o) => o.kind === 'stream' && o.active);
+  MCH.live = { start, settingsSection, draw, onAir };
   setInterval(poll, 2000);
   start();
 })();
